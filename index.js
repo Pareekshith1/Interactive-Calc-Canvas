@@ -1,248 +1,499 @@
-/** owner: Pareekshith.P */
-/**this is the js part of the calculator code */
-/** you can modify this code accordingly  */
-/** remove these commands while rewriting the codes */
+// ===========================
+// CALCULATOR FUNCTIONALITY
+// ===========================
 
-
-// Get references to the elements
 const numberDisplay = document.getElementById("number");
-const buttons = document.querySelectorAll("button[id]");
+let currentInput = "0";
+let previousInput = "";
+let operator = "";
+let history = [];
 
-let currentInput = ""; // Store the current input
-let previousInput = ""; // Store the previous input
-let operator = ""; // Store the operator (+, -, *, /)
-
-// Function to update the number display
+// Update display
 function updateDisplay() {
     numberDisplay.textContent = currentInput;
 }
 
-// Function to handle number button clicks
-function handleNumberClick(event) {
-    const clickedNumber = event.target.textContent;
-    currentInput += clickedNumber;
-    updateDisplay();
-}
+// Handle number and decimal clicks
+document.querySelectorAll('.mainnum').forEach(button => {
+    button.addEventListener('click', function() {
+        const value = this.getAttribute('data-value');
+        
+        if (value === '.' && currentInput.includes('.')) return;
+        
+        if (currentInput === "0" && value !== '.') {
+            currentInput = value;
+        } else {
+            currentInput += value;
+        }
+        updateDisplay();
+    });
+});
 
-// Function to handle operator button clicks
-function handleOperatorClick(event) {
-    if (currentInput !== "") {
+// Handle operator clicks
+document.querySelectorAll('.operator').forEach(button => {
+    button.addEventListener('click', function() {
+        if (currentInput === "") return;
+        
+        if (previousInput !== "" && operator !== "") {
+            calculate();
+        }
+        
+        operator = this.getAttribute('data-value');
         previousInput = currentInput;
         currentInput = "";
-        operator = event.target.textContent;
+    });
+});
+
+// Handle equals click
+document.getElementById('equals').addEventListener('click', calculate);
+
+function calculate() {
+    if (currentInput === "" || previousInput === "" || operator === "") return;
+    
+    const num1 = parseFloat(previousInput);
+    const num2 = parseFloat(currentInput);
+    let result;
+    
+    switch (operator) {
+        case "+":
+            result = num1 + num2;
+            break;
+        case "-":
+            result = num1 - num2;
+            break;
+        case "*":
+            result = num1 * num2;
+            break;
+        case "/":
+            if (num2 === 0) {
+                alert("Cannot divide by zero!");
+                clear_screen();
+                return;
+            }
+            result = num1 / num2;
+            break;
+        default:
+            return;
     }
-}
-
-// Function to handle equal button click
-function handleEqualClick() {
-    if (currentInput !== "" && previousInput !== "" && operator !== "") {
-        const num1 = parseFloat(previousInput);
-        const num2 = parseFloat(currentInput);
-
-        switch (operator) {
-            case "+":
-                currentInput = (num1 + num2).toString();
-                break;
-            case "-":
-                currentInput = (num1 - num2).toString();
-                break;
-            case "*":
-                currentInput = (num1 * num2).toString();
-                break;
-            case "/":
-                currentInput = (num1 / num2).toString();
-                break;
-        }
-
-        updateDisplay();
-        previousInput = "";
-        operator = "";
-    }
-}
-
-// Function to clear the screen
-function clear_screen() {
-    currentInput = "";
+    
+    // Add to history
+    const calculation = `${previousInput} ${operator} ${currentInput} = ${result}`;
+    history.push(calculation);
+    saveHistory();
+    
+    currentInput = result.toString();
     previousInput = "";
     operator = "";
     updateDisplay();
 }
 
-// Add event listeners to the number buttons
-buttons.forEach(button => {
-    if (button.id !== "=" && button.id !== "C") {
-        button.addEventListener("click", handleNumberClick);
+// Clear screen
+document.getElementById('clear').addEventListener('click', clear_screen);
+
+function clear_screen() {
+    currentInput = "0";
+    previousInput = "";
+    operator = "";
+    updateDisplay();
+}
+
+// Backspace
+document.getElementById('backspace').addEventListener('click', function() {
+    if (currentInput.length > 1) {
+        currentInput = currentInput.slice(0, -1);
+    } else {
+        currentInput = "0";
+    }
+    updateDisplay();
+});
+
+// Keyboard support for calculator
+document.addEventListener('keydown', function(e) {
+    if (e.key >= '0' && e.key <= '9' || e.key === '.') {
+        const btn = Array.from(document.querySelectorAll('.mainnum')).find(b => b.getAttribute('data-value') === e.key);
+        if (btn) btn.click();
+    } else if (e.key === '+' || e.key === '-' || e.key === '*' || e.key === '/') {
+        const btn = Array.from(document.querySelectorAll('.operator')).find(b => b.getAttribute('data-value') === e.key);
+        if (btn) btn.click();
+    } else if (e.key === 'Enter' || e.key === '=') {
+        e.preventDefault();
+        document.getElementById('equals').click();
+    } else if (e.key === 'Escape' || e.key === 'c' || e.key === 'C') {
+        clear_screen();
+    } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        document.getElementById('backspace').click();
     }
 });
 
-// Add event listeners to the operator buttons
-document.getElementById("+").addEventListener("click", handleOperatorClick);
-document.getElementById("-").addEventListener("click", handleOperatorClick);
-document.getElementById("*").addEventListener("click", handleOperatorClick);
-document.getElementById("/").addEventListener("click", handleOperatorClick);
+// ===========================
+// DRAG AND DROP CALCULATOR
+// ===========================
 
-// Add event listener to the equal button
-document.getElementById("=").addEventListener("click", handleEqualClick);
+let isDragging = false;
+let currentX;
+let currentY;
+let initialX;
+let initialY;
+let xOffset = 0;
+let yOffset = 0;
 
+const calculator = document.getElementById("main-div");
+const dragHandle = document.getElementById("calc-header");
 
-//slider mover
-var x = 0;
-var slider_Button = document.getElementById("slider-button");
-const slider_background = document.getElementById("slider");
-var body = document.getElementById("bod");
-var icons = document.querySelectorAll(".bar");
+dragHandle.addEventListener("mousedown", dragStart);
+document.addEventListener("mousemove", drag);
+document.addEventListener("mouseup", dragEnd);
 
-function mover() {
-  if (x === 0) {
-    // Move forwards
-    slider_Button.style.position = "relative";
-    slider_Button.style.left = "65px";
-    slider_background.style.backgroundColor = "#333";
-    slider_Button.style.backgroundColor = "#FFFFF0";
-    body.style.backgroundColor = "white";
-    
-    // Loop through the icons NodeList and set background color for each element
-    icons.forEach(function(icon) {
-      icon.style.backgroundColor = "#333";
-    });
-    
-    x = 65; // Set x to the new position value
-  } else if (x === 65) {
-    // Move backwards
-    slider_Button.style.position = "relative";
-    slider_Button.style.left = "5px"; // Set the left position to return to the original position
-    slider_background.style.backgroundColor = "white";
-    slider_Button.style.backgroundColor = "black";
-    body.style.backgroundColor = "#333";
+// Touch events for mobile
+dragHandle.addEventListener("touchstart", dragStart);
+document.addEventListener("touchmove", drag);
+document.addEventListener("touchend", dragEnd);
 
-    // Loop through the icons NodeList and set background color for each element
-    icons.forEach(function(icon) {
-      icon.style.backgroundColor = "white";
-    });
-
-    x = 0; // Reset x to the starting position value
-  }
-}
-
-/* for the menu bar*/
-
-var opacity_setter=0;
-function hideandseek_menubar(){
-
-    menu=document.getElementById("menu");   
-    rotator = document.getElementById("icon") 
-
-    /* defining the condition*/
-
-    if (opacity_setter == 0){
-
-        rotator.style.transform="rotate(90deg)";
-        menu.style.opacity=1;
-        opacity_setter ++;
-
+function dragStart(e) {
+    if (e.type === "touchstart") {
+        initialX = e.touches[0].clientX - xOffset;
+        initialY = e.touches[0].clientY - yOffset;
+    } else {
+        initialX = e.clientX - xOffset;
+        initialY = e.clientY - yOffset;
     }
 
-    else if(opacity_setter ==1){
-        rotator.style.transform="rotate(0deg)";
-        menu.style.opacity=0;
-        opacity_setter --;
+    if (e.target === dragHandle || dragHandle.contains(e.target)) {
+        isDragging = true;
+    }
+}
+
+function drag(e) {
+    if (isDragging) {
+        e.preventDefault();
+        
+        if (e.type === "touchmove") {
+            currentX = e.touches[0].clientX - initialX;
+            currentY = e.touches[0].clientY - initialY;
+        } else {
+            currentX = e.clientX - initialX;
+            currentY = e.clientY - initialY;
+        }
+
+        xOffset = currentX;
+        yOffset = currentY;
+
+        setTranslate(currentX, currentY, calculator);
+    }
+}
+
+function dragEnd() {
+    initialX = currentX;
+    initialY = currentY;
+    isDragging = false;
+}
+
+function setTranslate(xPos, yPos, el) {
+    el.style.transform = `translate(${xPos}px, ${yPos}px)`;
+}
+
+// ===========================
+// WHITEBOARD FUNCTIONALITY
+// ===========================
+
+const canvas = document.getElementById('whiteboard');
+const ctx = canvas.getContext('2d');
+const penColor = document.getElementById('pen-color');
+const penSize = document.getElementById('pen-size');
+const clearBtn = document.getElementById('clear-canvas');
+const eraserBtn = document.getElementById('eraser-btn');
+const textModeBtn = document.getElementById('text-mode-btn');
+
+let isDrawing = false;
+let isEraser = false;
+let isTextMode = false;
+let lastX = 0;
+let lastY = 0;
+
+// Drawing functions
+canvas.addEventListener('mousedown', startDrawing);
+canvas.addEventListener('mousemove', draw);
+canvas.addEventListener('mouseup', stopDrawing);
+canvas.addEventListener('mouseout', stopDrawing);
+
+// Touch support for whiteboard
+canvas.addEventListener('touchstart', handleTouchStart);
+canvas.addEventListener('touchmove', handleTouchDraw);
+canvas.addEventListener('touchend', stopDrawing);
+
+function startDrawing(e) {
+    if (isTextMode) return;
+    isDrawing = true;
+    const rect = canvas.getBoundingClientRect();
+    lastX = e.clientX - rect.left;
+    lastY = e.clientY - rect.top;
+}
+
+function draw(e) {
+    if (!isDrawing || isTextMode) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const currentX = e.clientX - rect.left;
+    const currentY = e.clientY - rect.top;
+    
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(currentX, currentY);
+    ctx.strokeStyle = isEraser ? '#ffffff' : penColor.value;
+    ctx.lineWidth = penSize.value;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    
+    lastX = currentX;
+    lastY = currentY;
+}
+
+function stopDrawing() {
+    isDrawing = false;
+}
+
+function handleTouchStart(e) {
+    if (isTextMode) return;
+    e.preventDefault();
+    isDrawing = true;
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    lastX = touch.clientX - rect.left;
+    lastY = touch.clientY - rect.top;
+}
+
+function handleTouchDraw(e) {
+    if (!isDrawing || isTextMode) return;
+    e.preventDefault();
+    
+    const rect = canvas.getBoundingClientRect();
+    const touch = e.touches[0];
+    const currentX = touch.clientX - rect.left;
+    const currentY = touch.clientY - rect.top;
+    
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(currentX, currentY);
+    ctx.strokeStyle = isEraser ? '#ffffff' : penColor.value;
+    ctx.lineWidth = penSize.value;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    
+    lastX = currentX;
+    lastY = currentY;
+}
+
+// Clear canvas
+clearBtn.addEventListener('click', function() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+});
+
+// Eraser mode
+eraserBtn.addEventListener('click', function() {
+    isEraser = !isEraser;
+    isTextMode = false;
+    eraserBtn.style.backgroundColor = isEraser ? '#667eea' : '#444';
+    textModeBtn.style.backgroundColor = '#444';
+    canvas.style.cursor = isEraser ? 'not-allowed' : 'crosshair';
+});
+
+// Text mode
+let textInput = '';
+textModeBtn.addEventListener('click', function() {
+    isTextMode = !isTextMode;
+    isEraser = false;
+    textModeBtn.style.backgroundColor = isTextMode ? '#667eea' : '#444';
+    eraserBtn.style.backgroundColor = '#444';
+    canvas.style.cursor = isTextMode ? 'text' : 'crosshair';
+});
+
+// Text mode click handler
+canvas.addEventListener('click', function(e) {
+    if (!isTextMode) return;
+    
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    const text = prompt('Enter text:');
+    if (text) {
+        ctx.font = `${penSize.value * 5}px Arial`;
+        ctx.fillStyle = penColor.value;
+        ctx.fillText(text, x, y);
+    }
+});
+
+// Keyboard input for text mode (when canvas is active)
+document.addEventListener('keydown', function(e) {
+    // Prevent calculator keyboard shortcuts when typing on whiteboard
+    if (document.activeElement === canvas && isTextMode) {
+        e.stopPropagation();
+    }
+});
+
+// ===========================
+// THEME TOGGLE
+// ===========================
+
+let themeMode = 0;
+const sliderButton = document.getElementById("slider-button");
+const sliderBackground = document.getElementById("slider");
+const body = document.getElementById("bod");
+const icons = document.querySelectorAll(".bar");
+
+function mover() {
+    if (themeMode === 0) {
+        sliderButton.style.left = "65px";
+        sliderBackground.style.backgroundColor = "#333";
+        sliderButton.style.backgroundColor = "#FFFFF0";
+        body.style.backgroundColor = "white";
+        
+        icons.forEach(function(icon) {
+            icon.style.backgroundColor = "#333";
+        });
+        
+        themeMode = 1;
+    } else {
+        sliderButton.style.left = "5px";
+        sliderBackground.style.backgroundColor = "white";
+        sliderButton.style.backgroundColor = "black";
+        body.style.backgroundColor = "#333";
+        
+        icons.forEach(function(icon) {
+            icon.style.backgroundColor = "white";
+        });
+        
+        themeMode = 0;
+    }
+}
+
+// ===========================
+// MENU BAR
+// ===========================
+
+let menuOpen = false;
+function hideandseek_menubar() {
+    const menu = document.getElementById("menu");
+    const rotator = document.getElementById("icon");
+    
+    if (!menuOpen) {
+        rotator.style.transform = "rotate(90deg)";
+        menu.classList.add('active');
+        menuOpen = true;
+    } else {
+        rotator.style.transform = "rotate(0deg)";
+        menu.classList.remove('active');
+        menuOpen = false;
         div_closer();
     }
 }
 
+// ===========================
+// CUSTOMIZATION
+// ===========================
 
-/* changing the color of the number keys */
-
-var num_buttons = document.querySelectorAll(".mainnum");
+const numButtons = document.querySelectorAll(".mainnum");
+const displayer = document.getElementById("display-div");
+const calcBackground = document.getElementById("main-div");
+const resultColor = document.getElementById("number");
 
 function color_changer(button) {
-    var color = button.getAttribute("data-color");
-    
-    num_buttons.forEach(function(numButton) {
+    const color = button.getAttribute("data-color");
+    numButtons.forEach(function(numButton) {
         numButton.style.backgroundColor = color;
     });
 }
 
-/* change the display color */
-
-var displayer = document.getElementById("display-div");
-
-function color_changer2(button){
-    var color = button.getAttribute("data-color");
-
+function color_changer2(button) {
+    const color = button.getAttribute("data-color");
     displayer.style.backgroundColor = color;
 }
 
-
-/*  change the calc color */
-
-var calc_background= document.getElementById("main-div");
-
-function color_changer3(button){
-    var color = button.getAttribute("data-color");
-    calc_background.style.backgroundColor=color;
+function color_changer3(button) {
+    const color = button.getAttribute("data-color");
+    calcBackground.style.backgroundColor = color;
 }
 
-/* change the original background */
-
-var original_background=document.getElementById("bod");
-
-function color_changer4(button){
-    var color=button.getAttribute("data-color");
-    body.style.backgroundColor=color;
+function color_changer4(button) {
+    const color = button.getAttribute("data-color");
+    body.style.backgroundColor = color;
 }
 
-/*  to change the result ont color */
-
-var result_color= document.getElementById("number");
-
-function color_changer5(button){
-    var color = button.getAttribute("data-color");
-    result_color.style.color=color;
+function color_changer5(button) {
+    const color = button.getAttribute("data-color");
+    resultColor.style.color = color;
 }
-
-/*  setting the var */
-
 
 function customizerdiv_setter() {
-    var custom_div = document.getElementById("customization-div");
-    
-    var computedStyle = window.getComputedStyle(custom_div);
-    var display = computedStyle.getPropertyValue("display");
-
-    if (display === 'none') {
-        custom_div.style.display = 'block';
-    } else if (display === 'block') {
-        custom_div.style.display = 'none';
-    }
+    const customDiv = document.getElementById("customization-div");
+    const display = window.getComputedStyle(customDiv).display;
+    customDiv.style.display = display === 'none' ? 'block' : 'none';
 }
 
-
-/* function to close the customize div even when the menu bar is clicked*/
-
-function div_closer(){
-
-    var closer= document.getElementById("customization-div");
-
-    var computedStyle = window.getComputedStyle(closer);
-    var display = computedStyle.getPropertyValue("display");
-
-    if(display == 'block'){
+function div_closer() {
+    const closer = document.getElementById("customization-div");
+    if (window.getComputedStyle(closer).display === 'block') {
         closer.style.display = 'none';
     }
 }
 
-
-/* to restore default settings */
-
-function restore_settings(){
-
+function restore_settings() {
     location.reload();
 }
 
-/** to clear the history  */
+// ===========================
+// HISTORY MANAGEMENT
+// ===========================
 
-function clear_history(){
-
-    alert("The History Will Be Cleared");
+function saveHistory() {
+    localStorage.setItem('calcHistory', JSON.stringify(history));
 }
+
+function loadHistory() {
+    const saved = localStorage.getItem('calcHistory');
+    if (saved) {
+        history = JSON.parse(saved);
+    }
+}
+
+function show_history() {
+    const modal = document.getElementById('history-modal');
+    const historyList = document.getElementById('history-list');
+    
+    if (history.length === 0) {
+        historyList.innerHTML = '<p style="text-align: center; color: #999;">No history yet</p>';
+    } else {
+        historyList.innerHTML = '';
+        history.slice().reverse().forEach(function(item) {
+            const p = document.createElement('p');
+            p.textContent = item;
+            historyList.appendChild(p);
+        });
+    }
+    
+    modal.style.display = 'block';
+}
+
+function close_history() {
+    document.getElementById('history-modal').style.display = 'none';
+}
+
+function clear_history() {
+    if (confirm("Are you sure you want to clear the history?")) {
+        history = [];
+        saveHistory();
+        alert("History cleared!");
+    }
+}
+
+// Close modal when clicking outside
+window.addEventListener('click', function(e) {
+    const modal = document.getElementById('history-modal');
+    if (e.target === modal) {
+        close_history();
+    }
+});
+
+// Load history on page load
+loadHistory();
